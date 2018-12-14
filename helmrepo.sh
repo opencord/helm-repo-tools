@@ -25,7 +25,7 @@ WORKSPACE=${WORKSPACE:-.}
 REPO_DIR="${REPO_DIR:-chart_repo}"
 
 GERRIT_BRANCH="${GERRIT_BRANCH:-$(git symbolic-ref --short HEAD)}"
-PUBLISH_URL="${PUBLISH_URL:-https://charts.opencord.org}"
+PUBLISH_URL="${PUBLISH_URL:-charts.opencord.org}"
 
 ORIGINAL_INDEX_YAML="${ORIGINAL_INDEX_YAML:-/var/www/charts/index.yaml}"
 
@@ -45,7 +45,7 @@ echo "Generating repo index"
 
 scp "${PUBLISH_URL}":"${ORIGINAL_INDEX_YAML}" .
 
-helm repo index "${REPO_DIR}" --url "${PUBLISH_URL}" --merge index.yaml
+helm repo index "${REPO_DIR}" --url https://"${PUBLISH_URL}" --merge index.yaml
 
 echo "Finished, chart repo generated: ${REPO_DIR}"
 
