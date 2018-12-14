@@ -43,7 +43,7 @@ done < <(find "${WORKSPACE}" -name Chart.yaml -print0)
 
 echo "Generating repo index"
 
-scp "${PUBLISH_URL}":"${ORIGINAL_INDEX_YAML}" .
+scp -o StrictHostKeyChecking=no "${PUBLISH_URL}":"${ORIGINAL_INDEX_YAML}" .
 
 helm repo index "${REPO_DIR}" --url https://"${PUBLISH_URL}" --merge index.yaml
 
