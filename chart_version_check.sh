@@ -74,7 +74,7 @@ fi
 # loop on result of 'find -name Chart.yaml'
 while IFS= read -r -d '' chart
 do
-  chartdir=$(dirname "${chart#./}")
+  chartdir=$(dirname "${chart#${WORKSPACE}/}")
   chart_changed_files=""
   version_updated=0
 
