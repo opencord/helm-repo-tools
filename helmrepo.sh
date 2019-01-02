@@ -46,7 +46,7 @@ then
 
   while IFS= read -r -d '' chart
   do
-    chartdir=$(dirname "${chart#./}")
+    chartdir=$(dirname "${chart#${WORKSPACE}/}")
     helm package --dependency-update --destination "${NEW_REPO_DIR}" "${chartdir}"
 
   done < <(find "${WORKSPACE}" -name Chart.yaml -print0)
@@ -61,7 +61,7 @@ else
   # Loop and create chart packages, only if changed
   while IFS= read -r -d '' chart
   do
-    chartdir=$(dirname "${chart#./}")
+    chartdir=$(dirname "${chart#${WORKSPACE}/}")
 
     # See if chart version changed from previous HEAD commit
     chart_yaml_diff=$(git diff -p HEAD^ "${chartdir}/Chart.yaml")
