@@ -71,7 +71,7 @@ else
       # assumes that helmlint.sh and chart_version_check.sh have been run
       # pre-merge, which ensures that all charts are valid and have their
       # version updated in Chart.yaml
-      new_version_string=$(echo "$chart_yaml_diff" | grep -E '\+version:\s*\d+\.\d+\.\d+$')
+      new_version_string=$(echo "$chart_yaml_diff" | awk '/^\+version:/ { print $2 }')
       echo "New version of chart ${chartdir}, creating package: ${new_version_string//+version:/}"
       helm package --dependency-update --destination "${NEW_REPO_DIR}" "${chartdir}"
     else

@@ -93,8 +93,8 @@ do
   if [ -n "$chart_yaml_diff" ]
   then
     echo "Changes to Chart.yaml in '$chartdir'"
-    old_version_string=$(echo "$chart_yaml_diff" | grep -E '\-version:\s*\d+\.\d+\.\d+$')
-    new_version_string=$(echo "$chart_yaml_diff" | grep -E '\+version:\s*\d+\.\d+\.\d+$')
+    old_version_string=$(echo "$chart_yaml_diff" | awk '/^\-version:/ { print $2 }')
+    new_version_string=$(echo "$chart_yaml_diff" | awk '/^\+version:/ { print $2 }')
 
     if [ -n "$new_version_string" ]
     then
