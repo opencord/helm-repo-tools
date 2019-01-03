@@ -92,14 +92,21 @@ else
     fi
   done < <(find "${NEW_REPO_DIR}" -name '*.tgz' -print0)
 
-  # Create updated index.yaml (new version created in NEW_REPO_DIR)
-  helm repo index --url "https://${PUBLISH_URL}" --merge "${OLD_REPO_DIR}/index.yaml" "${NEW_REPO_DIR}"
+  # only update index if new charts are added
+  if ls "${NEW_REPO_DIR}"/*.tgz > /dev/null 2>&1;
+  then
+    # Create updated index.yaml (new version created in NEW_REPO_DIR)
+    helm repo index --url "https://${PUBLISH_URL}" --merge "${OLD_REPO_DIR}/index.yaml" "${NEW_REPO_DIR}"
 
-  # move over packages and index.yaml
-  mv "${NEW_REPO_DIR}"/*.tgz "${OLD_REPO_DIR}/"
-  mv "${NEW_REPO_DIR}/index.yaml" "${OLD_REPO_DIR}/index.yaml"
+    # move over packages and index.yaml
+    mv "${NEW_REPO_DIR}"/*.tgz "${OLD_REPO_DIR}/"
+    mv "${NEW_REPO_DIR}/index.yaml" "${OLD_REPO_DIR}/index.yaml"
 
-  echo "# helmrepo.sh Success! Updated existing repo index in ${OLD_REPO_DIR}"
+    echo "# helmrepo.sh Success! Updated existing repo index in ${OLD_REPO_DIR}"
+
+  else
+    echo "# helmrepo.sh Success! No new charts added."
+  fi
 fi
 
 exit 0
