@@ -29,10 +29,11 @@ failed_charts=""
 WORKSPACE=${WORKSPACE:-.}
 
 # branch to compare against, defaults to master
-GERRIT_BRANCH=${GERRIT_BRANCH:-opencord/master}
+COMPARISON_BRANCH="${COMPARISON_BRANCH:-opencord/master}"
+echo "# Comparing with branch: $COMPARISON_BRANCH"
 
 # Create list of changed files compared to branch
-changed_files=$(git diff --name-only "${GERRIT_BRANCH}")
+changed_files=$(git diff --name-only "${COMPARISON_BRANCH}")
 
 # Create list of untracked by git files
 untracked_files=$(git ls-files -o --exclude-standard)
@@ -45,7 +46,7 @@ then
 else
   if [ -n "$changed_files" ]
   then
-    echo "Changed files compared with $GERRIT_BRANCH:"
+    echo "Changed files compared with $COMPARISON_BRANCH:"
     # Search and replace per SC2001 doesn't recognize ^ (beginning of line)
     # shellcheck disable=SC2001
     echo "${changed_files}" | sed 's/^/  /'
@@ -88,7 +89,7 @@ do
   done
 
   # See if chart version changed using 'git diff', and is SemVer
-  chart_yaml_diff=$(git diff -p "$GERRIT_BRANCH" "${chartdir}/Chart.yaml")
+  chart_yaml_diff=$(git diff -p "$COMPARISON_BRANCH" -- "${chartdir}/Chart.yaml")
 
   if [ -n "$chart_yaml_diff" ]
   then

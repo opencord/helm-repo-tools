@@ -25,14 +25,10 @@ echo "# helmrepo.sh, using helm: $(helm version -c) #"
 # when not running under Jenkins, use current dir as workspace
 WORKSPACE=${WORKSPACE:-.}
 
-# branch to compare against, defaults to master
-GERRIT_BRANCH=${GERRIT_BRANCH:-opencord/master}
-
 # directory to compare against, doesn't need to be present
 OLD_REPO_DIR="${OLD_REPO_DIR:-cord-charts-repo}"
 NEW_REPO_DIR="${NEW_REPO_DIR:-chart_repo}"
 
-GERRIT_BRANCH="${GERRIT_BRANCH:-$(git symbolic-ref --short HEAD)}"
 PUBLISH_URL="${PUBLISH_URL:-charts.opencord.org}"
 
 # create and clean NEW_REPO_DIR
@@ -64,7 +60,7 @@ else
     chartdir=$(dirname "${chart#${WORKSPACE}/}")
 
     # See if chart version changed from previous HEAD commit
-    chart_yaml_diff=$(git diff -p HEAD^ "${chartdir}/Chart.yaml")
+    chart_yaml_diff=$(git diff -p HEAD^ -- "${chartdir}/Chart.yaml")
 
     if [ -n "$chart_yaml_diff" ]
     then
