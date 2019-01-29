@@ -81,7 +81,7 @@ do
 
   # create a list of files that were changed in the chart
   for file in $changed_files; do
-    if [[ $file =~ $chartdir ]]
+    if [[ $file =~ ^$chartdir ]]
     then
       chart_changed_files+=$'\n'
       chart_changed_files+="  ${file}"
