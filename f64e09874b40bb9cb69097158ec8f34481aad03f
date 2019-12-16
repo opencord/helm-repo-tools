@@ -1,0 +1,7 @@
+Code-Review+2: Matteo Scandolo <teo@opennetworking.org>
+Verified+1: Matteo Scandolo <teo@opennetworking.org>
+Submitted-by: Matteo Scandolo <teo@opennetworking.org>
+Submitted-at: Mon, 16 Dec 2019 23:40:34 +0000
+Reviewed-on: https://gerrit.opencord.org/16423
+Project: helm-repo-tools
+Branch: refs/heads/master
