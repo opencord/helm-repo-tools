@@ -49,11 +49,8 @@ do
 
   echo "Checking chart: $chartdir"
 
-  # update dependencies for profiles/workflows, as they include TOSCA from required charts
-  if [[ $chartdir =~ xos-profiles || $chartdir =~ workflows ]] && [ -f "${chartdir}/requirements.yaml" ]
-  then
-    helm dependency update "${chartdir}"
-  fi
+  # update dependencies (if any)
+  helm dependency update "${chartdir}"
 
   # lint the chart (with values.yaml if it exists)
   if [ -f "${chartdir}/values.yaml" ]; then

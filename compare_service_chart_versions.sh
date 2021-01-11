@@ -21,7 +21,7 @@
 REPODIR=${REPODIR:-~/cord}
 DEBUG=${DEBUG:-false}
 
-for CHART in $REPODIR/helm-charts/xos-services/*
+for CHART in "$REPODIR"/helm-charts/xos-services/*
 do
     APPVERSION=$( awk '/^appVersion:/ { print $2 }' "$CHART/Chart.yaml" )
     SVCNAME=$( basename "$CHART")

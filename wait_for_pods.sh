@@ -28,7 +28,7 @@ CHECK_INTERVAL=${CHECK_INTERVAL:-5}
 KUBECTL_ARGS=${KUBECTL_ARGS:-}
 
 # use namespace if passed as first arg, or "all" for all namespaces
-if [ ! -z "$1" ]
+if [ -n "$1" ]
 then
   if [[ "$1" == "all" ]]
   then
