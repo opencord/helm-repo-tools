@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-
-# Copyright 2018-present Open Networking Foundation
+# ---------------------------------------------------------------------------
+# Copyright 2018-2022 Open Networking Foundation (ONF) and the ONF Contributors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -10,126 +10,407 @@
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# WITHOUT WARRANTIESS OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+# ---------------------------------------------------------------------------
 # chart_version_check.sh
 # checks that changes to a chart include a change to the chart version
+# ---------------------------------------------------------------------------
 
 set -u
+# set -euo pipefail
 
-echo "# chart_version_check.sh, using git: $(git --version) #"
+##-------------------##
+##---]  GLOBALS  [---##
+##-------------------##
+declare -i -g force_fail=0
+declare -a -g error_stream=()
 
-# Collect success/failure, and list/types of failures
-fail_version=0
-failed_charts=""
+# declare -A -g ARGV=() # ARGV['debug']=1
+# declare -i -g debug=1 # uncomment to enable
 
-# when not running under Jenkins, use current dir as workspace
-WORKSPACE=${WORKSPACE:-.}
+## -----------------------------------------------------------------------
+## Intent: Display a program banner for logging
+## -----------------------------------------------------------------------
+# shellcheck disable=SC2120
+function banner()
+{
+    local program="${0##*/}"
 
-# branch to compare against, defaults to master
-COMPARISON_BRANCH="${COMPARISON_BRANCH:-opencord/master}"
-echo "# Comparing with branch: $COMPARISON_BRANCH"
+    cat <<BANNER
 
-# Create list of changed files compared to branch
-changed_files=$(git diff --name-only "${COMPARISON_BRANCH}")
+# -----------------------------------------------------------------------
+# Running: ${program} $@
+# -----------------------------------------------------------------------
+# Now: $(date '+%Y-%m-%d %H:%M:%S')
+# Git: $(git --version)
+# -----------------------------------------------------------------------
+# COMPARISON_BRANCH: ${COMPARISON_BRANCH}
+#         WORKSPACE: ${WORKSPACE}
+# -----------------------------------------------------------------------
+BANNER
 
-# Create list of untracked by git files
-untracked_files=$(git ls-files -o --exclude-standard)
+    return
+}
 
-# Print lists of files that are changed/untracked
-if [ -z "$changed_files" ] && [ -z "$untracked_files" ]
-then
-  echo "# chart_version_check.sh - No changes, Success! #"
-  exit 0
-else
-  if [ -n "$changed_files" ]
-  then
-    echo "Changed files compared with $COMPARISON_BRANCH:"
-    # Search and replace per SC2001 doesn't recognize ^ (beginning of line)
-    # shellcheck disable=SC2001
-    echo "${changed_files}" | sed 's/^/  /'
-  fi
-  if [ -n "$untracked_files" ]
-  then
-    echo "Untracked files:"
-    # shellcheck disable=SC2001
-    echo "${untracked_files}" | sed 's/^/  /'
-  fi
-fi
+## -----------------------------------------------------------------------
+## Intent: Display a log summary entry then exit with status.
+## -----------------------------------------------------------------------
+function summary_status_with_exit()
+{
+    local exit_code=$1; shift
+    local program="${0##*/}"
+    local summary=''
+    [[ $# -gt 0 ]] && { summary=" - $1"; shift; }
 
-# combine lists
-if [ -n "$changed_files" ]
-then
-  if [ -n "$untracked_files" ]
-  then
-    changed_files+=$'\n'
-    changed_files+="${untracked_files}"
-  fi
-else
-  changed_files="${untracked_files}"
-fi
+    ## -----------------------------------
+    ## status override courtesy of error()
+    ## -----------------------------------
+    declare -i -g force_fail
+    if [ $force_fail -eq 1 ]; then exit_code=$force_fail; fi
 
-# For all the charts, fail on changes within a chart without a version change
-# loop on result of 'find -name Chart.yaml'
-while IFS= read -r -d '' chart
+    ## --------------------------
+    ## Set summary display string
+    ## --------------------------
+    case "$exit_code" in
+	0) status='PASS' ;;
+	*) status='FAIL' ;;
+    esac
+
+    [[ $# -gt 0 ]] && formatStream "$@"
+
+    echo
+    echo "[$status] ${program} ${summary}"
+
+    exit $exit_code
+}
+
+## -----------------------------------------------------------------------
+## Intent: Display an error and configure report summary_status as FAIL
+## -----------------------------------------------------------------------
+function error()
+{
+    declare -i -g force_fail=1
+    declare -a -g error_stream
+
+    # shellcheck disable=SC2124
+    local error="[ERROR] $@"
+    error_stream+=("$error")
+    echo "$error"
+    return
+}
+
+## -----------------------------------------------------------------------
+## Intent: Given a list (header and data) format contents as a log entry
+## -----------------------------------------------------------------------
+##  Usage: displayList --banner "List of something" "${data_stream[@]}"
+## -----------------------------------------------------------------------
+function displayList()
+{
+    local indent=''
+    while [ $# -gt 0 ]; do
+	local arg="$1"
+	case "$arg" in
+	    -*banner)  shift; echo "$1"     ;;
+	    -*indent)  shift; indent="$1"   ;;
+	    -*tab-2)   echo -n '  '         ;;
+	    -*tab-4)   echo -n '    '       ;;
+	    -*tab-6)   echo -n '      '     ;;
+	    -*tab-8)   echo -n '        '   ;;
+	    -*newline) echo;                ;;
+	    -*tab)     echo -n '    '       ;;
+	    *) break                        ;;
+	esac
+	shift
+    done
+
+    for line in "$@";
+    do
+	echo -e "  ${indent}$line"
+    done
+    return
+}
+
+## -----------------------------------------------------------------------
+## Intent: Program init, provide defaults for globals, etc.
+## -----------------------------------------------------------------------
+function init()
+{
+    # when not running under Jenkins, use current dir as workspace
+    #   o [TODO] - Perform a secondary username check to guard against a
+    #     jenkins/bash env hiccup leaving WORKSPACE= temporarily undefined.
+    WORKSPACE=${WORKSPACE:-.}
+    COMPARISON_BRANCH="${COMPARISON_BRANCH:-opencord/master}"
+    return
+}
+
+## -----------------------------------------------------------------------
+## Intent: Remove quotes, whitespace & garbage from a string
+## -----------------------------------------------------------------------
+## ..seealso: https://www.regular-expressions.info/posixbrackets.html
+## -----------------------------------------------------------------------
+function filter_codes()
+{
+    declare -n val="$1"; shift             # indirect
+    val="${val//[\"\'[:blank:][:cntrl:]]}" # [:punct:] contains hyphen
+    return
+}
+
+## -----------------------------------------------------------------------
+## Intent: Detect and report VERSION file changes
+## -----------------------------------------------------------------------
+## :param path: Path to a Chart.yaml file.
+## :type  path: str
+##
+## :param branch: Comparsion baranch (?-remote-?)
+## :type  branch: str
+##
+## :return: true if embedded version string was modified.
+## :rtype:  int
+## -----------------------------------------------------------------------
+## ..note: What about change detection for: apiVersion, appVersion (?)
+## -----------------------------------------------------------------------
+function version_diff()
+{
+    local path="$1";         shift
+    local branch="$1";       shift
+
+    declare -n old_var="$1"; shift # indirect
+    declare -n new_var="$1"; shift # indirect
+
+    old_var=''
+    new_var=''
+    readarray -t delta < <(git diff -p "$branch" -- "$path")
+
+    local modified=0
+    if [ ${#delta[@]} -gt 0 ]; then # modified
+
+	#----------------------------------------
+	# diff --git a/voltha-adapter-openolt/Chart.yaml [...]
+	# --- a/voltha-adapter-openolt/Chart.yaml
+	# +++ b/voltha-adapter-openolt/Chart.yaml
+	# @@ -14,7 +14,7 @@
+	# ---
+	# -version: "2.11.3"   (====> 2.11.3)
+	# +version: "2.11.8"   (====> 2.11.8)
+	#----------------------------------------
+	local line
+	for line in "${delta[@]}";
+	do
+	    # [TODO] Replace awk with string builtins to reduce shell overhead.
+	    case "$line" in
+		-version:*)
+		    modified=1
+		    readarray -t tmp < <(awk '/^\-version:/ { print $2 }' <<<"$line")
+		    # shellcheck disable=SC2034
+		    old_var="${tmp[0]}"
+		    filter_codes 'old_var'
+		    ;;
+		+version:*)
+		    readarray -t tmp < <(awk '/^\+version:/ { print $2 }' <<<"$line")
+		    # shellcheck disable=SC2034
+		    new_var="${tmp[0]}"
+		    filter_codes 'new_var'
+		    ;;
+	    esac
+	done
+    fi
+
+    [ $modified -ne 0 ] # set $? for if/then/elif use: "if version_diff; then"
+    return
+}
+
+## -----------------------------------------------------------------------
+## Intent: Gather a list of Chart.yaml files from the workspace.
+## -----------------------------------------------------------------------
+function gather_charts()
+{
+    declare -n varname="$1"; shift
+    readarray -t varname < <(find . -name 'Chart.yaml' -print)
+
+    local idx
+    for (( idx=0; idx<${#varname[@]}; idx++ ));
+    do
+	local val="${varname[idx]}"
+	if [ ${#val} -lt 2 ]; then continue; fi
+
+	# Normalize: remove './' to support path comparison
+	if [[ "${val:0:2}" == './' ]]; then
+	    varname[idx]="${val:2:${#val}}"
+	    [[ -v debug ]] && echo "[$idx] ${varname[$idx]}"
+	fi
+    done
+
+    [[ -v debug ]] && declare -p varname
+    return
+}
+
+## -----------------------------------------------------------------------
+## Intent: Given a chart file and complete list of modified files
+##   display a list of files modified in the chart directory.
+## -----------------------------------------------------------------------
+## :param chart: path to a Chart.yaml file
+## :type  chart: str
+##
+## :param varname: A list files modified in a git sandbox.
+## :type  varname: list, indirect
+## -----------------------------------------------------------------------
+function report_modified()
+{
+    local chart="$1"; shift
+    local dir="${chart%/*}"
+    # shellcheck disable=SC2178
+    declare -n varname="$1"; shift
+
+    ## ---------------------------------------------
+    ## Gather files contained in the chart directory
+    ## ---------------------------------------------
+    declare -a found=()
+    for val in "${varname[@]}";
+    do
+	case "$val" in
+	    */Chart.yaml) ;; # special case
+	    "${dir}"*) found+=("$val") ;;
+	esac
+    done
+
+    ## --------------------------------------------
+    ## Display results when modified files detected
+    ## --------------------------------------------
+    if [ ${#found[@]} -gt 0 ]; then
+	declare -a stream=()
+	stream+=('--tab-4')
+	stream+=('--banner' "Files Changed: $dir")
+	stream+=('--tab-6') # really --tab-8
+	stream+=("${found[@]}")
+	displayList "${stream[@]}"
+    fi
+
+    [ ${#found[@]} -gt 0 ] # set $? for if/else
+    return
+}
+
+## -----------------------------------------------------------------------
+## Intent: Gather a list of Chart.yaml files from the workspace.
+## -----------------------------------------------------------------------
+declare -a -g charts=()
+declare -a -g changes_remote=()
+declare -a -g untracked_files=()
+function gather_state()
+{
+    local branch="$1"; shift
+
+    gather_charts 'charts'
+    [[ -v debug ]] && declare -p charts
+
+    readarray -t changes_remote < <(git diff --name-only "$branch")
+    [[ -v debug ]] && declare -p changes_remote
+
+    readarray -t untracked_files < <(git ls-files -o --exclude-standard)
+    [[ -v debug ]] && declare -p untracked_files
+
+    return
+}
+
+# shellcheck disable=SC1073
+##----------------##
+##---]  MAIN  [---##
+##----------------##
+init
+# shellcheck disable=SC2119
+banner
+gather_state "$COMPARISON_BRANCH"
+
+chart=''
+for chart in "${charts[@]}";
 do
-  chartdir=$(dirname "${chart#${WORKSPACE}/}")
-  chart_changed_files=""
-  version_updated=0
+    [[ -v debug ]] && echo -e "\nCHART: $chart"
 
-  # create a list of files that were changed in the chart
-  for file in $changed_files; do
-    if [[ $file =~ ^$chartdir/ ]]
-    then
-      chart_changed_files+=$'\n'
-      chart_changed_files+="  ${file}"
-    fi
-  done
+    chart_dir="${chart%/*}"
 
-  # See if chart version changed using 'git diff', and is SemVer
-  chart_yaml_diff=$(git diff -p "$COMPARISON_BRANCH" -- "${chartdir}/Chart.yaml")
-
-  if [ -n "$chart_yaml_diff" ]
-  then
-    echo "Changes to Chart.yaml in '$chartdir'"
-    old_version_string=$(echo "$chart_yaml_diff" | awk '/^\-version:/ { print $2 }')
-    new_version_string=$(echo "$chart_yaml_diff" | awk '/^\+version:/ { print $2 }')
-
-    if [ -n "$new_version_string" ]
-    then
-      version_updated=1
-      echo " Old version string:${old_version_string//-version:/}"
-      echo " New version string:${new_version_string//+version:/}"
-    fi
-  fi
-
-  # if there are any changed files
-  if [ -n "$chart_changed_files" ]
-  then
-    # and version updated, print changed files
-    if [ $version_updated -eq 1 ]
-    then
-      echo " Files changed:${chart_changed_files}"
+    ## ---------------------------
+    ## Detect VERSION file changes
+    ## ---------------------------
+    declare -i chart_modified=0
+    old=''
+    new=''
+    if version_diff "$chart" "$COMPARISON_BRANCH" 'old' 'new'; then
+	suffix="($old => $new)" # display verion deltas in the right margin
+	printf '[CHART] %-60s %s\n' "$chart" "$suffix"
+	chart_modified=1
     else
-      # otherwise fail this chart
-      echo "Changes to chart but no version update in '$chartdir':${chart_changed_files}"
-      fail_version=1
-      failed_charts+=$'\n'
-      failed_charts+="  $chartdir"
+	suffix="($old)"
+	printf '[CHART] %s\n' "$chart"
     fi
-  fi
 
-done < <(find "${WORKSPACE}" -name Chart.yaml -print0)
+    ## -----------------------------------
+    ## Report modified files for the chart
+    ## -----------------------------------
+    declare -a combo_list=()
+    combo_list+=("${changes_remote[@]}")
+    combo_list+=("${untracked_files[@]}")
+    if report_modified "$chart" 'combo_list';
+    then
+	if [ $chart_modified -eq 0 ]; then
+	    error "Chart modified but version unchanged: ${chart_dir}"
+	fi
+    fi
 
-if [[ $fail_version != 0 ]]; then
-  echo "# chart_version_check.sh Failure! #"
-  echo "Charts that need to be fixed:$failed_charts"
-  exit 1
+done
+
+## ---------------------------
+## Report summary: local edits
+## ---------------------------
+if [ ${#changes_remote} -gt 0 ]; then # local_edits
+    displayList \
+	'--newline'                 \
+	'--banner' 'Changed Files:' \
+	"${changes_remote[@]}"
 fi
 
-echo "# chart_version_check.sh Success! - all charts have updated versions #"
+## -------------------------------
+## Report summary: untracked files
+## -------------------------------
+if [ ${#untracked_files} -gt 0 ]; then
+    displayList \
+	'--newline'                   \
+	'--banner' 'Untracked Files:' \
+	"${untracked_files[@]}"
+fi
 
-exit 0
+## ---------------------------------
+## Report summary: problems detected
+## ---------------------------------
+declare -a -g error_stream
+if [ ${#error_stream[@]} -gt 0 ]; then
+    displayList \
+	'--newline'                 \
+	'--banner' 'Error Sumamry:' \
+	"${error_stream[@]}"
+fi
 
+summary_status_with_exit $?
+
+# -----------------------------------------------------------------------
+# Running: chart_version_check.sh
+# -----------------------------------------------------------------------
+# Now: 2022-12-09 03:10:52
+# Git: git version 2.34.1
+# -----------------------------------------------------------------------
+# COMPARISON_BRANCH: origin/master
+#         WORKSPACE: .
+# -----------------------------------------------------------------------
+# [CHART] voltha-adapter-openolt/Chart.yaml                            (2.11.3 => 2.11.8)
+# [CHART] voltha-tracing/Chart.yaml
+# [CHART] voltha/Chart.yaml
+#    Files Changed: voltha-tracing
+#        voltha-tracing/values.yaml
+# [ERROR] Chart modified but version unchanged: voltha-tracing
+# [CHART] voltha/Chart.yaml
+# -----------------------------------------------------------------------
+
+# [SEE ALSO
+# ---------------------------------------------------------------------------
+# https://www.regular-expressions.info/posixbrackets.html (character classes)
+# ---------------------------------------------------------------------------
