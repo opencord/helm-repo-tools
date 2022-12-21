@@ -362,7 +362,7 @@ done
 ## ---------------------------
 ## Report summary: local edits
 ## ---------------------------
-if [ ${#changes_remote} -gt 0 ]; then # local_edits
+if [[ -x changes_remote ]] && [ ${#changes_remote} -gt 0 ]; then # local_edits
     displayList \
 	'--newline'                 \
 	'--banner' 'Changed Files:' \
