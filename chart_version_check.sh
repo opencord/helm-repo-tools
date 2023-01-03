@@ -372,7 +372,7 @@ fi
 ## -------------------------------
 ## Report summary: untracked files
 ## -------------------------------
-if [ ${#untracked_files} -gt 0 ]; then
+if [ ${#untracked_files[@]} -gt 0 ]; then
     displayList \
 	'--newline'                   \
 	'--banner' 'Untracked Files:' \
