@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-
+# -----------------------------------------------------------------------
 # Copyright 2018-2023 Open Networking Foundation (ONF) and the ONF Contributors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,11 +13,15 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+# -----------------------------------------------------------------------
 # helmlint.sh
 # run `helm lint` on all helm charts that are found
+# -----------------------------------------------------------------------
 
+# [TODO] use set -e else errors can fly under the radar
 set +e -o pipefail
+
+declare -g iam="${0##*/}"
 
 # verify that we have helm installed
 command -v helm >/dev/null 2>&1 || { echo "helm not found, please install it" >&2; exit 1; }
@@ -26,13 +30,16 @@ echo "# helmlint.sh, using helm version: $(helm version -c --short) #"
 
 # Collect success/failure, and list/types of failures
 fail_lint=0
-failed_lint=""
-failed_req=""
+declare -a failed_deps=()
+declare -a failed_lint=()
+declare -a failed_reqs=()
 
 # when not running under Jenkins, use current dir as workspace
 WORKSPACE=${WORKSPACE:-.}
 
 # cleanup repos if `clean` option passed as parameter
+# update then move set -u to set [+-]e -o pipefail above
+# if [[ $# -gt 0 ]] && [[ "$1" = 'clean' ]]; then <--- allow set -u
 if [ "$1" = "clean" ]
 then
   echo "Removing any downloaded charts"
@@ -50,7 +57,11 @@ do
   echo "Checking chart: $chartdir"
 
   # update dependencies (if any)
-  helm dependency update "${chartdir}"
+  if ! helm dependency update "${chartdir}";
+  then
+      fail_lint=1
+      failed_deps+=("${chartdir}")
+  fi
 
   # lint the chart (with values.yaml if it exists)
   if [ -f "${chartdir}/values.yaml" ]; then
@@ -62,18 +73,24 @@ do
   rc=$?
   if [[ $rc != 0 ]]; then
     fail_lint=1
-    failed_lint+="${chartdir} "
+    failed_lint+=("${chartdir}")
   fi
 
+  # -----------------------------------------------------------------------
   # check that requirements are available if they're specified
-  if [ -f "${chartdir}/requirements.yaml" ]
+  # how is this check different than helm dep up above ?
+  # -----------------------------------------------------------------------
+  # later helm versions allow requirements.yaml to be defined directly in
+  # Chart.yaml so an explicit check may no longer be needed.
+  # 
+  # Should we err when requirements.yaml detected to cleanup old code ?
+  # -----------------------------------------------------------------------
+  if [ -f "${chartdir}/requirements.yaml" ];
   then
     echo "Chart has requirements.yaml, checking availability"
-    helm dependency update "${chartdir}"
-    rc=$?
-    if [[ $rc != 0 ]]; then
-      fail_lint=1
-      failed_req+="${chartdir} "
+    if ! helm dependency update "${chartdir}"; then
+       fail_lint=1
+       failed_reqs+=("${chartdir}")
     fi
 
     # remove charts dir after checking for availability, as this chart might be
@@ -84,9 +101,43 @@ do
 done < <(find "${WORKSPACE}" -name Chart.yaml -print0)
 
 if [[ $fail_lint != 0 ]]; then
-  echo "# helmlint.sh Failure! #"
-  echo "Charts that failed to lint: $failed_lint"
-  echo "Charts with failures in requirements.yaml: $failed_req"
+    cat <<EOM
+
+** -----------------------------------------------------------------------
+** ${iam}: Errors Detected
+** -----------------------------------------------------------------------
+EOM
+
+    #   echo "Charts that failed to lint: $failed_lint"
+  if [ ${#failed_lint[@]} -gt 0 ]; then
+      echo "Charts that failed to lint:"
+      for chart in "${failed_lint[@]}";
+      do
+	  echo "    $chart"
+      done
+  fi
+
+  if [ ${#failed_deps[@]} -gt 0 ]; then
+      echo "Charts that failed helm dependency update:"
+      for chart in "${failed_deps[@]}";
+      do
+	  echo "    $chart"
+      done
+  fi
+
+  if [ ${#failed_reqs[@]} -gt 0 ]; then
+      echo "Charts with failures in requirements.yaml:"
+      for chart in "${failed_reqs[@]}";
+      do
+	  echo "    $chart"
+      done
+  fi
+
+  echo
+  echo "See Also:"
+  echo "  o https://wiki.opennetworking.org/display/VOLTHA/make+lint-helm"
+  
+  echo
   exit 1
 fi
 
