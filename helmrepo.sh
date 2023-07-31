@@ -47,8 +47,37 @@ function func_echo()
 ## -----------------------------------------------------------------------
 function error()
 {
-    echo "** ${BASH_SOURCE[0]}::${FUNCNAME[1]} ERROR: $*"
+    echo -e "** ${BASH_SOURCE[0]##*/}::${FUNCNAME[1]} ERROR: $*"
     exit 1
+}
+
+## -----------------------------------------------------------------------
+## Intent: Detect pre-existing versioned packages.
+## -----------------------------------------------------------------------
+function check_packages()
+{
+    local dir="$1"; shift
+
+    readarray -t package_paths < <(find "${dir}" -name '*.tgz' -print)
+    declare -p package_paths
+
+    # ---------------------------------------------
+    # Check for versioned package collision.
+    # ---------------------------------------------
+    for package_path in "${package_paths[@]}";
+    do
+	package="${package_path##*/}" # basename
+	
+	if [ -f "${OLD_REPO_DIR}/${package}" ]; then
+	    echo
+	    echo "PACKAGE: $package"
+	    /bin/ls -l "$package_path"
+	    /bin/ls -l "${OLD_REPO_DIR}/${package}"
+	    error "Package: ${package} with same version already exists in ${OLD_REPO_DIR}"
+	fi
+    done
+
+    return
 }
 
 ## -----------------------------------------------------------------------
@@ -61,6 +90,32 @@ function get_chart_yaml()
 
     readarray -t _charts < <(find "$dir" -name Chart.yaml -print | sort)
     ref=("${_charts[@]}")
+    return
+}
+
+## -----------------------------------------------------------------------
+## Intent: Given a helm chart line extract and return *version.
+## -----------------------------------------------------------------------
+function getVersion()
+{
+    # shellcheck disable=SC2178
+    local -n ref=$1; shift # declare -A
+    local line="$1"; shift
+
+    [[ -v debug ]] && func_echo "LINE: $line"
+
+    # foo=${string#"$prefix"}
+
+    line="${line%\#*}"            # Snip comments
+    line="${line//[[:blank:]]}"   # Prune whitespace
+
+    # version : x.y.z
+    readarray -d':' -t _fields < <(printf '%s' "$line")
+
+    local key="${_fields[0]}"
+    local val="${_fields[1]}"
+    ref[$key]="$val"
+
     return
 }
 
@@ -88,9 +143,25 @@ function helm_index_publish()
 
     if [[ -v dry_run ]]; then
 	func_echo "helm repo index $repo_dir --url https://${PUBLISH_URL}"
+
+    elif [[ -v no_publish ]]; then
+	func_echo "[SKIP] helm publishing due to --no-publish"
+	
     else
-	helm repo index "$repo_dir" --url https://"${PUBLISH_URL}"
+	## ------------------------------------------------
+	## Helm updates are guarded by jenkins
+	## Revision control should reinforce that assertion
+	## ------------------------------------------------
+	case "$USER" in
+	    jenkins)
+		helm repo index "$repo_dir" --url https://"${PUBLISH_URL}"
+		;;
+	    *)
+		func_echo "[SKIP] helm publishing due to ($USER != jenkins)"
+		;;
+	esac
     fi
+
     return
 }
 
@@ -122,7 +193,7 @@ function chart_path_to_test_dir()
 {
     local val="$1"    ; shift
 
-# shellcheck disable=SC2178 
+# shellcheck disable=SC2178
    declare -n ref=$1 ; shift # indirect var
 
     val="${val%/Chart.yaml}"  # dirname: prune /Chart.yaml
@@ -134,7 +205,7 @@ function chart_path_to_test_dir()
 }
 
 ## -----------------------------------------------------------------------
-## Intent: Given a Chart.yaml file path return test directory where stored
+## Intent: Given Chart.yaml files create a new indexed chart repository
 ## -----------------------------------------------------------------------
 function create_helm_repo_new()
 {
@@ -151,15 +222,72 @@ function create_helm_repo_new()
     do
 	echo
 	func_echo "Chart.yaml: $chart"
-	
+
 	chartdir=''
 	chart_path_to_test_dir "$chart" chartdir
 	func_echo " Chart.dir: $chartdir"
-	
+
 	helm_deps_update "${repo_dir}"
     done
-    
+
     helm_index_publish "${repo_dir}"
+
+    return
+}
+
+## -----------------------------------------------------------------------
+## Intent: Compare version stings extracted from Chart.yaml delta.
+##   o attribute version:x.y.z must be changed to enable change
+##     detection and chart loading.
+## -----------------------------------------------------------------------
+function validate_changes()
+{
+    local chart="$1"; shift 
+    # shellcheck disable=SC2178
+    local -n ref=$1; shift
+
+    local msg
+    ## -------------------------------------------
+    ## Validation logic: all keys collected exist
+    ## Chart version must change to enable loading
+    ## -------------------------------------------
+    local key0
+    for key0 in "${!ref[@]}";
+    do
+	local key="${key0:1}"
+	# shellcheck disable=SC2034
+	local old="-${key}"
+	local new="+${key}"
+
+	## Key/val paris are diff deltas:
+	##   -version : 1.2.3
+	##   +version : 4.5.6
+	if [[ ! -v ref['-version'] ]]; then
+	    msg='Modify version= to publish chart changes'
+	elif [[ ! -v ref["$new"] ]]; then
+	    msg="Failed to detect +${key}= change in attributes"
+	else
+	    continue
+	fi
+
+	local -i failed=1
+	cat <<ERR
+
+** -----------------------------------------------------------------------
+** Chart dir: $chartdir
+** Chart.yml: $chart
+**     Error: $msg
+** -----------------------------------------------------------------------
+ERR
+	func_echo "$(declare -p versions | sed -e 's/\[/\n\[/g')"
+    done
+
+    if [[ -v failed ]]; then
+	false
+    else
+	true
+    fi
+
     return
 }
 
@@ -171,16 +299,17 @@ while [ $# -gt 0 ]; do
     arg="$1"; shift
 
     case "$arg" in
-	-*debug) declare -g -i debug=1     ;;
-	-*dry*)  declare -g -i dry_run=1   ;;
+	-*debug)      declare -g -i debug=1      ;;
+	-*dry*)       declare -g -i dry_run=1    ;;
+	-*no-publish) declare -g -i no_publish=1 ;;
 	-*help)
 	    cat <<EOH
 Usage: $0
   --debug       Enable debug mode
   --dry-run     Simulate helm calls
 EOH
-	    ;;	
-	
+	    ;;
+
 	-*) echo "[SKIP] unknown switch [$arg]" ;;
 	*) echo "[SKIP] unknown argument [$arg]" ;;
     esac
@@ -219,68 +348,64 @@ else
 
       # See if chart version changed from previous HEAD commit
       readarray -t chart_yaml_diff < <(git diff -p HEAD^ -- "$chart")
-      
+
       if [[ ! -v chart_yaml_diff ]]; then
 	  echo "Chart unchanged, not packaging: '${chartdir}'"
 
+      # -------------------------------------------------------------------
+      # Assumes that helmlint.sh and chart_version_check.sh have been run
+      # pre-merge, which ensures that all charts are valid and have their
+      # version updated in Chart.yaml
+      # -------------------------------------------------------------------
       elif [ ${#chart_yaml_diff} -gt 0 ]; then
-	  # assumes that helmlint.sh and chart_version_check.sh have been run
-	  # pre-merge, which ensures that all charts are valid and have their
-	  # version updated in Chart.yaml
-
-	  [[ -v new_version_string ]] && unset new_version_string
-
+	  declare -A versions=()
 	  for line in "${chart_yaml_diff[@]}";
 	  do
 	      [[ -v debug ]] && func_echo "$line"
 
 	      case "$line" in
-		  # "-version: \"1.0.3\""
-		  -version:*)
-		      [[ ! -v debug ]] && func_echo "$line"
-		      ;;
-
-		  # "+version: \"1.0.4\""
-		  +version:*)
-		      [[ ! -v debug ]] && func_echo "$line"
-
-		      readarray -d':' -t _fields <<<"$line" # split on delimiter
-		      val="${_fields[1]}"
-		      val="${val//[[:blank:]]}"
-		      
-		      # error detection: only assign when we have a value.
-		      [ ${#val} -gt 0 ] && new_version_string="$val"
-		      break
-		      ;;
+		  # appVersion: "1.0.3"
+		  # version: 1.2.3
+		  [-+]*[vV]ersion:*) getVersion versions "$line" ;;
 	      esac
 	  done
 
-	  [[ ! -v new_version_string ]] && error "Failed to detect version: in $chart"
+	  # ---------------------------------------------------------------
+	  # [TODO] -- versions['-version']='version string change required'
+	  # ---------------------------------------------------------------
+	  # version: string change initiates a delta forcing helm to update.
+	  # Should it be required by every checkin ?  For ex: release may
+	  # accumulate several version edits then publish all when finished.
+	  #
+	  # Danger would be chart changes are not published/tested when
+	  # a dev forgets to update the chart version string.
+	  # ---------------------------------------------------------------
 
-	  echo "New version of chart ${chartdir}, creating package: ${new_version_string}"
+	  ## ---------------------------------------------------------------
+	  ## Check for required version change and stray attribute deletions
+	  ## We are comparing diff output [-+]verison : x.y
+	  ## +{key} indicates a required attribute exists and was modified
+	  ## ---------------------------------------------------------------
+	  if ! validate_changes "$chart" versions; then
+	      declare -g -i failed=1
+	      continue
+          fi
 
-	  helm_deps_update "1${NEW_REPO_DIR}"
+	  # Always query, version string may not have changed
+	  readarray -t ver < <(grep -oP '(?<= version: )\S+' "$chart")
+	  declare -p ver
+
+	  echo "Detected new version of chart ${chartdir}, creating package: ${ver[*]}"
+
+	  helm_deps_update "${NEW_REPO_DIR}"
 
       else
 	  echo "Chart unchanged, not packaging: '${chartdir}'"
-      fi    
+      fi
   done
 
-  ## -----------------------------------------------------------------------
-  ## -----------------------------------------------------------------------
-  readarray -t package_paths < <(find "${NEW_REPO_DIR}" -name '*.tgz' -print)
-  declare -p package_paths
-  
-  # Check for collisions between old/new packages
-  #  while IFS= read -r -d '' package_path
-  for package_path in "${package_paths[@]}";
-  do
-      package="${package_path##*/}" # basename
+  check_packages "$NEW_REPO_DIR"
 
-      [ -f "${OLD_REPO_DIR}/${package}" ] \
-	  && error "Package: ${package} with same version already exists in ${OLD_REPO_DIR}"
-  done
-  
   ## -----------------------------------------------------------------------
   ## -----------------------------------------------------------------------
   # only update index when new charts are added
@@ -301,3 +426,5 @@ else
 fi
 
 exit 0
+
+# [EOF]
