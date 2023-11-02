@@ -16,6 +16,23 @@
       "message": "LGTM",
       "revId": "63e85a8a385a2035fe65c3a6b3183611122f6f70",
       "serverId": "2a2bfe1b-c5c2-48ed-9ac8-16438ab24388"
+    },
+    {
+      "unresolved": true,
+      "key": {
+        "uuid": "ec5f4254_5f72b512",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 1
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 1000948
+      },
+      "writtenOn": "2023-11-02T18:04:39Z",
+      "side": 1,
+      "message": "LGTM\n\n* Copyright 2018-2022 Open Networking Foundation (ONF) and the ONF Contributors\nCan you update the copyright notice in the header to 2023 so the date last modified is captured.\n+2 \u003d\u003e merge after that\n",
+      "revId": "63e85a8a385a2035fe65c3a6b3183611122f6f70",
+      "serverId": "2a2bfe1b-c5c2-48ed-9ac8-16438ab24388"
     }
   ]
 }
