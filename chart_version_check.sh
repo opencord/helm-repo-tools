@@ -370,7 +370,7 @@ function report_modified()
     do
         case "$val" in
             *'/Chart.yaml')            ;; # special case
-            "${dir}"*) found+=("$val") ;;
+            "${dir}/"*) found+=("$val") ;;
         esac
     done
 
