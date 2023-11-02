@@ -33,6 +33,23 @@
       "message": "LGTM\n\n* Copyright 2018-2022 Open Networking Foundation (ONF) and the ONF Contributors\nCan you update the copyright notice in the header to 2023 so the date last modified is captured.\n+2 \u003d\u003e merge after that\n",
       "revId": "63e85a8a385a2035fe65c3a6b3183611122f6f70",
       "serverId": "2a2bfe1b-c5c2-48ed-9ac8-16438ab24388"
+    },
+    {
+      "unresolved": true,
+      "key": {
+        "uuid": "d0e231e1_4cf7481f",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 1
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 1000948
+      },
+      "writtenOn": "2023-11-02T18:16:47Z",
+      "side": 1,
+      "message": "Hmmm on second thought we may need conditional logic in the patch.\n\nDevs are likely not be interested in peripheral changes (exact match on directories) but we will still need the ability to screen all charts for problems.  I believe this check was initially created to detect stale content that is in need of an update -- this is the only detection mechanism atm so targeted checking may create a coverage blind spot.\n\nrepo:onf-make contains lint/helm/, maybe we can cover the gap there with targets lint-helm-all and lint-helm-mod.",
+      "revId": "63e85a8a385a2035fe65c3a6b3183611122f6f70",
+      "serverId": "2a2bfe1b-c5c2-48ed-9ac8-16438ab24388"
     }
   ]
 }
