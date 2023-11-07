@@ -86,6 +86,24 @@
       "parentUuid": "ec5f4254_5f72b512",
       "revId": "63e85a8a385a2035fe65c3a6b3183611122f6f70",
       "serverId": "2a2bfe1b-c5c2-48ed-9ac8-16438ab24388"
+    },
+    {
+      "unresolved": true,
+      "key": {
+        "uuid": "291ba81e_fac23438",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 1
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 1000948
+      },
+      "writtenOn": "2023-11-07T14:40:42Z",
+      "side": 1,
+      "message": "Wonder if the intent may have been to have a single dependency convey that charts in general have been modified.\n\nIf the version were bumped in the top level chart when one of the voltha-* directories change only a single test would be needed to detect it.\n\nOne other case could be for release.  Distinct charts and versions could be grouped under a single version branded into the main voltha chart.",
+      "parentUuid": "cc3a49a0_e686e80f",
+      "revId": "63e85a8a385a2035fe65c3a6b3183611122f6f70",
+      "serverId": "2a2bfe1b-c5c2-48ed-9ac8-16438ab24388"
     }
   ]
 }
