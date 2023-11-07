@@ -122,6 +122,24 @@
       "parentUuid": "291ba81e_fac23438",
       "revId": "63e85a8a385a2035fe65c3a6b3183611122f6f70",
       "serverId": "2a2bfe1b-c5c2-48ed-9ac8-16438ab24388"
+    },
+    {
+      "unresolved": true,
+      "key": {
+        "uuid": "40b56736_8bd30f8b",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 1
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 1000948
+      },
+      "writtenOn": "2023-11-07T15:02:02Z",
+      "side": 1,
+      "message": "No need to abandon the change, linting only charts that devs submit changes for is the correct behavior in general.\n\nI mentioned this detail in an earlier review comment -- what we need is conditional logic around linting.  Interactive/dev mode will only validate locally modified files.\n\nLinting for release mode will be exhaustive to detect latent problems due to deps or peripheral changes not being screened by dev mode.\n\n\nDual lint targets have been created for some of the makefile targets:\n\nlint-{topic}-all    # screen all files, release mode\nlint-{topic}-mod    # only locally modified, dev mode\n\nThe helm lint target has not yet been updated to support this structure yet but there is a need for it.",
+      "parentUuid": "03c01d12_cc49cc4c",
+      "revId": "63e85a8a385a2035fe65c3a6b3183611122f6f70",
+      "serverId": "2a2bfe1b-c5c2-48ed-9ac8-16438ab24388"
     }
   ]
 }
