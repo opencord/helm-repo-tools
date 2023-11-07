@@ -104,6 +104,24 @@
       "parentUuid": "cc3a49a0_e686e80f",
       "revId": "63e85a8a385a2035fe65c3a6b3183611122f6f70",
       "serverId": "2a2bfe1b-c5c2-48ed-9ac8-16438ab24388"
+    },
+    {
+      "unresolved": true,
+      "key": {
+        "uuid": "03c01d12_cc49cc4c",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 1
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 1000983
+      },
+      "writtenOn": "2023-11-07T14:48:03Z",
+      "side": 1,
+      "message": "I don\u0027t see how that\u0027s useful going forward. It made working on the voltha-helm-charts repo more difficult for us. But if keeping the old logic is going to be helpful for you, then say the word and I\u0027ll abandon the change.",
+      "parentUuid": "291ba81e_fac23438",
+      "revId": "63e85a8a385a2035fe65c3a6b3183611122f6f70",
+      "serverId": "2a2bfe1b-c5c2-48ed-9ac8-16438ab24388"
     }
   ]
 }
