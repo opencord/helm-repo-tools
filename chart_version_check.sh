@@ -55,6 +55,60 @@ BANNER
 }
 
 ## -----------------------------------------------------------------------
+## Intent: Augment a version string for display.  If the given string
+##         is empty rewrite to make that detail painfully obvious.
+## -----------------------------------------------------------------------
+function version_for_display()
+{
+    local -n ref=$1; shift
+
+    if [[ ${#ref} -eq 0 ]]; then
+        ref='?????????????????' # higlight the problem for reporting
+    fi
+    return
+}
+
+## -----------------------------------------------------------------------
+## Intent: Use git commands to retrieve chart version embedded within a file
+## -----------------------------------------------------------------------
+## Given:
+##   ref     Indirect var for version string return.
+##   path    Repository path to a Chart.yaml file
+##   branch  git branch to retrieve
+##
+## Return:
+##   ref     Extracted version string
+## -----------------------------------------------------------------------
+function get_version_by_git()
+{
+    local -n ref=$1   ; shift
+    local path="$1"   ; shift
+    local branch="$1" ; shift
+    ref=''
+
+    # -----------------------------------------------------------------------
+    # cat "{branch}:{chart}" to stdout: (wanted => 'version : x.y.z')
+    # -----------------------------------------------------------------------
+    readarray -t buffer < <(\
+                            git show "${branch}:${path}" \
+                                | grep '^[[:blank:]]*version[[:blank:]]*:'\
+        )
+
+    # Extract version string
+    if [[ ${#buffer[@]} -ne 1 ]]; then
+        ref='' # Highly forgiving (display only)
+    else
+        local raw="${buffer[0]}"
+
+        # Extract value, split on whitespace, colon, comment or quote
+        readarray -t fields < <(awk -F '[[:blank:]:#"]+' '{print $2}' <<<"$raw")
+        ref="${fields[0]}"
+    fi
+
+    return
+}
+
+## -----------------------------------------------------------------------
 ## Intent: Display a log summary entry then exit with status.
 ## -----------------------------------------------------------------------
 function summary_status_with_exit()
@@ -83,7 +137,7 @@ function summary_status_with_exit()
     echo
     echo "[$status] ${program} ${summary}"
 
-    exit $exit_code
+    exit "$exit_code"
 }
 
 ## -----------------------------------------------------------------------
@@ -327,8 +381,6 @@ for chart in "${charts[@]}";
 do
     [[ -v debug ]] && echo -e "\nCHART: $chart"
 
-    chart_dir="${chart%/*}"
-
     ## ---------------------------
     ## Detect VERSION file changes
     ## ---------------------------
@@ -336,12 +388,18 @@ do
     old=''
     new=''
     if version_diff "$chart" "$COMPARISON_BRANCH" 'old' 'new'; then
+        version_for_display new
         suffix="($old => $new)" # display verion deltas in the right margin
         printf '[CHART] %-60s %s\n' "$chart" "$suffix"
         chart_modified=1
     else
+        if [[ ${#old} -eq 0 ]]; then
+            get_version_by_git old "$chart" "$COMPARISON_BRANCH"
+        fi
+        version_for_display old
         suffix="($old)"
         printf '[CHART] %s\n' "$chart"
+        new="$old"
     fi
 
     ## -----------------------------------
@@ -353,7 +411,9 @@ do
     if report_modified "$chart" 'combo_list';
     then
         if [ $chart_modified -eq 0 ]; then
-            error "Chart modified but version unchanged: ${chart_dir}"
+            version_for_display new
+            suffix="($old)"
+            error "Chart modified but version unchanged: ${chart} ${suffix}"
         fi
     fi
 
