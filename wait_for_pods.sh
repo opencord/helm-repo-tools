@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Copyright 2018-2023 Open Networking Foundation (ONF) and the ONF Contributors
+# Copyright 2018-2024 Open Networking Foundation (ONF) and the ONF Contributors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -30,12 +30,12 @@ KUBECTL_ARGS=${KUBECTL_ARGS:-}
 # use namespace if passed as first arg, or "all" for all namespaces
 if [ -n "$1" ]
 then
-  if [[ "$1" == "all" ]]
-  then
-    KUBECTL_ARGS+=" --all-namespaces"
-  else
-    KUBECTL_ARGS+=" --namespace=$1"
-  fi
+    if [[ "$1" == "all" ]]
+    then
+        KUBECTL_ARGS+=" --all-namespaces"
+    else
+        KUBECTL_ARGS+=" --namespace=$1"
+    fi
 fi
 set -u
 
@@ -49,68 +49,68 @@ echo "Number printed is number of jobs/pods/containers waiting to be ready"
 prev_total_unready=0
 
 while true; do
-  NOW=$(date +%s)
+    NOW=$(date +%s)
 
-  # handle timeout without completion
-  if [ "$NOW" -gt "$END_TIME" ]
-  then
-    echo "Pods/Containers/Jobs not ready before timeout of ${PODS_TIMEOUT} seconds"
-    fail_wfp=1
-    break
-  fi
+    # handle timeout without completion
+    if [ "$NOW" -gt "$END_TIME" ]
+    then
+        echo "Pods/Containers/Jobs not ready before timeout of ${PODS_TIMEOUT} seconds"
+        fail_wfp=1
+        break
+    fi
 
-  # get list of uncompleted items with jsonpath, then count them with wc
-  # ref: https://kubernetes.io/docs/reference/kubectl/jsonpath/
-  # jsonpath is picky about string vs comparison quoting, so may need to
-  # disable SC2026 for these lines. SC2086 allows for multiple args.
+    # get list of uncompleted items with jsonpath, then count them with wc
+    # ref: https://kubernetes.io/docs/reference/kubectl/jsonpath/
+    # jsonpath is picky about string vs comparison quoting, so may need to
+    # disable SC2026 for these lines. SC2086 allows for multiple args.
 
-  # shellcheck disable=SC2026,SC2086
-  pending_pods=$(kubectl get pods ${KUBECTL_ARGS} -o=jsonpath='{range .items[?(@.status.phase=="Pending")]}{.metadata.name}{"\n"}{end}')
-  # check for empty string before counting lines, echo adds a newline
-  if [ -z "$pending_pods" ]; then
-    pending_pod_count=0
-  else
-    pending_pod_count=$( echo "$pending_pods" | wc -l)
-  fi
+    # shellcheck disable=SC2026,SC2086
+    pending_pods=$(kubectl get pods ${KUBECTL_ARGS} -o=jsonpath='{range .items[?(@.status.phase=="Pending")]}{.metadata.name}{"\n"}{end}')
+    # check for empty string before counting lines, echo adds a newline
+    if [ -z "$pending_pods" ]; then
+        pending_pod_count=0
+    else
+        pending_pod_count=$( echo "$pending_pods" | wc -l)
+    fi
 
-  # shellcheck disable=SC2026,SC2086
-  unready_containers=$(kubectl get pods ${KUBECTL_ARGS} -o=jsonpath='{range .items[?(@.status.phase=="Running")]}{range .status.containerStatuses[?(@.ready==false)]}{.name}: {.ready}{"\n"}{end}{end}')
-  if [ -z "$unready_containers" ]; then
-    unready_container_count=0
-  else
-    unready_container_count=$(echo "$unready_containers" | wc -l)
-  fi
+    # shellcheck disable=SC2026,SC2086
+    unready_containers=$(kubectl get pods ${KUBECTL_ARGS} -o=jsonpath='{range .items[?(@.status.phase=="Running")]}{range .status.containerStatuses[?(@.ready==false)]}{.name}: {.ready}{"\n"}{end}{end}')
+    if [ -z "$unready_containers" ]; then
+        unready_container_count=0
+    else
+        unready_container_count=$(echo "$unready_containers" | wc -l)
+    fi
 
-  # shellcheck disable=SC2026,SC2086
-  active_jobs=$(kubectl get jobs $KUBECTL_ARGS -o=jsonpath='{range .items[?(@.status.active=='1')]}{.metadata.name}{"\n"}{end}')
-  if [ -z "$active_jobs" ]; then
-    active_job_count=0
-  else
-    active_job_count=$(echo "$active_jobs" | wc -l)
-  fi
+    # shellcheck disable=SC2026,SC2086
+    active_jobs=$(kubectl get jobs $KUBECTL_ARGS -o=jsonpath='{range .items[?(@.status.active=='1')]}{.metadata.name}{"\n"}{end}')
+    if [ -z "$active_jobs" ]; then
+        active_job_count=0
+    else
+        active_job_count=$(echo "$active_jobs" | wc -l)
+    fi
 
-  total_unready=$((pending_pod_count + unready_container_count + active_job_count))
+    total_unready=$((pending_pod_count + unready_container_count + active_job_count))
 
-  # if everything is ready, print runtime and break
-  if [ "$total_unready" -eq 0 ]
-  then
-    runtime=$((NOW - START_TIME))
-    echo ""
-    echo "All pods ready in $runtime seconds"
-    break
-  fi
+    # if everything is ready, print runtime and break
+    if [ "$total_unready" -eq 0 ]
+    then
+        runtime=$((NOW - START_TIME))
+        echo ""
+        echo "All pods ready in $runtime seconds"
+        break
+    fi
 
-  # deal with changes in number of jobs
-  if [ "$total_unready" -ne "$prev_total_unready" ]
-  then
-    echo ""
-    echo "Change in unready pods - Pending Pods: $pending_pod_count, Unready Containers: $unready_container_count, Active Jobs: $active_job_count"
-  fi
-  prev_total_unready=$total_unready
+    # deal with changes in number of jobs
+    if [ "$total_unready" -ne "$prev_total_unready" ]
+    then
+        echo ""
+        echo "Change in unready pods - Pending Pods: $pending_pod_count, Unready Containers: $unready_container_count, Active Jobs: $active_job_count"
+    fi
+    prev_total_unready=$total_unready
 
-  # print number of unready pods every $CHECK_INTERVAL
-  echo -n "$total_unready "
-  sleep "$CHECK_INTERVAL"
+    # print number of unready pods every $CHECK_INTERVAL
+    echo -n "$total_unready "
+    sleep "$CHECK_INTERVAL"
 done
 
 exit ${fail_wfp}

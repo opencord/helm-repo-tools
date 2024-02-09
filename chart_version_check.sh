@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ---------------------------------------------------------------------------
-# Copyright 2018-2022 Open Networking Foundation (ONF) and the ONF Contributors
+# Copyright 2018-2024 Open Networking Foundation (ONF) and the ONF Contributors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -74,8 +74,8 @@ function summary_status_with_exit()
     ## Set summary display string
     ## --------------------------
     case "$exit_code" in
-	0) status='PASS' ;;
-	*) status='FAIL' ;;
+        0) status='PASS' ;;
+        *) status='FAIL' ;;
     esac
 
     [[ $# -gt 0 ]] && formatStream "$@"
@@ -110,24 +110,24 @@ function displayList()
 {
     local indent=''
     while [ $# -gt 0 ]; do
-	local arg="$1"
-	case "$arg" in
-	    -*banner)  shift; echo "$1"     ;;
-	    -*indent)  shift; indent="$1"   ;;
-	    -*tab-2)   echo -n '  '         ;;
-	    -*tab-4)   echo -n '    '       ;;
-	    -*tab-6)   echo -n '      '     ;;
-	    -*tab-8)   echo -n '        '   ;;
-	    -*newline) echo;                ;;
-	    -*tab)     echo -n '    '       ;;
-	    *) break                        ;;
-	esac
-	shift
+        local arg="$1"
+        case "$arg" in
+            -*banner)  shift; echo "$1"     ;;
+            -*indent)  shift; indent="$1"   ;;
+            -*tab-2)   echo -n '  '         ;;
+            -*tab-4)   echo -n '    '       ;;
+            -*tab-6)   echo -n '      '     ;;
+            -*tab-8)   echo -n '        '   ;;
+            -*newline) echo;                ;;
+            -*tab)     echo -n '    '       ;;
+            *) break                        ;;
+        esac
+        shift
     done
 
     for line in "$@";
     do
-	echo -e "  ${indent}$line"
+        echo -e "  ${indent}$line"
     done
     return
 }
@@ -186,35 +186,35 @@ function version_diff()
     local modified=0
     if [ ${#delta[@]} -gt 0 ]; then # modified
 
-	#----------------------------------------
-	# diff --git a/voltha-adapter-openolt/Chart.yaml [...]
-	# --- a/voltha-adapter-openolt/Chart.yaml
-	# +++ b/voltha-adapter-openolt/Chart.yaml
-	# @@ -14,7 +14,7 @@
-	# ---
-	# -version: "2.11.3"   (====> 2.11.3)
-	# +version: "2.11.8"   (====> 2.11.8)
-	#----------------------------------------
-	local line
-	for line in "${delta[@]}";
-	do
-	    # [TODO] Replace awk with string builtins to reduce shell overhead.
-	    case "$line" in
-		-version:*)
-		    modified=1
-		    readarray -t tmp < <(awk '/^\-version:/ { print $2 }' <<<"$line")
-		    # shellcheck disable=SC2034
-		    old_var="${tmp[0]}"
-		    filter_codes 'old_var'
-		    ;;
-		+version:*)
-		    readarray -t tmp < <(awk '/^\+version:/ { print $2 }' <<<"$line")
-		    # shellcheck disable=SC2034
-		    new_var="${tmp[0]}"
-		    filter_codes 'new_var'
-		    ;;
-	    esac
-	done
+        #----------------------------------------
+        # diff --git a/voltha-adapter-openolt/Chart.yaml [...]
+        # --- a/voltha-adapter-openolt/Chart.yaml
+        # +++ b/voltha-adapter-openolt/Chart.yaml
+        # @@ -14,7 +14,7 @@
+        # ---
+        # -version: "2.11.3"   (====> 2.11.3)
+        # +version: "2.11.8"   (====> 2.11.8)
+        #----------------------------------------
+        local line
+        for line in "${delta[@]}";
+        do
+            # [TODO] Replace awk with string builtins to reduce shell overhead.
+            case "$line" in
+                -version:*)
+                    modified=1
+                    readarray -t tmp < <(awk '/^\-version:/ { print $2 }' <<<"$line")
+                    # shellcheck disable=SC2034
+                    old_var="${tmp[0]}"
+                    filter_codes 'old_var'
+                    ;;
+                +version:*)
+                    readarray -t tmp < <(awk '/^\+version:/ { print $2 }' <<<"$line")
+                    # shellcheck disable=SC2034
+                    new_var="${tmp[0]}"
+                    filter_codes 'new_var'
+                    ;;
+            esac
+        done
     fi
 
     [ $modified -ne 0 ] # set $? for if/then/elif use: "if version_diff; then"
@@ -232,14 +232,14 @@ function gather_charts()
     local idx
     for (( idx=0; idx<${#varname[@]}; idx++ ));
     do
-	local val="${varname[idx]}"
-	if [ ${#val} -lt 2 ]; then continue; fi
+        local val="${varname[idx]}"
+        if [ ${#val} -lt 2 ]; then continue; fi
 
-	# Normalize: remove './' to support path comparison
-	if [[ "${val:0:2}" == './' ]]; then
-	    varname[idx]="${val:2:${#val}}"
-	    [[ -v debug ]] && echo "[$idx] ${varname[$idx]}"
-	fi
+        # Normalize: remove './' to support path comparison
+        if [[ "${val:0:2}" == './' ]]; then
+            varname[idx]="${val:2:${#val}}"
+            [[ -v debug ]] && echo "[$idx] ${varname[$idx]}"
+        fi
     done
 
     [[ -v debug ]] && declare -p varname
@@ -269,22 +269,22 @@ function report_modified()
     declare -a found=()
     for val in "${varname[@]}";
     do
-	case "$val" in
-	    */Chart.yaml) ;; # special case
-	    "${dir}"*) found+=("$val") ;;
-	esac
+        case "$val" in
+            */Chart.yaml) ;; # special case
+            "${dir}"*) found+=("$val") ;;
+        esac
     done
 
     ## --------------------------------------------
     ## Display results when modified files detected
     ## --------------------------------------------
     if [ ${#found[@]} -gt 0 ]; then
-	declare -a stream=()
-	stream+=('--tab-4')
-	stream+=('--banner' "Files Changed: $dir")
-	stream+=('--tab-6') # really --tab-8
-	stream+=("${found[@]}")
-	displayList "${stream[@]}"
+        declare -a stream=()
+        stream+=('--tab-4')
+        stream+=('--banner' "Files Changed: $dir")
+        stream+=('--tab-6') # really --tab-8
+        stream+=("${found[@]}")
+        displayList "${stream[@]}"
     fi
 
     [ ${#found[@]} -gt 0 ] # set $? for if/else
@@ -336,12 +336,12 @@ do
     old=''
     new=''
     if version_diff "$chart" "$COMPARISON_BRANCH" 'old' 'new'; then
-	suffix="($old => $new)" # display verion deltas in the right margin
-	printf '[CHART] %-60s %s\n' "$chart" "$suffix"
-	chart_modified=1
+        suffix="($old => $new)" # display verion deltas in the right margin
+        printf '[CHART] %-60s %s\n' "$chart" "$suffix"
+        chart_modified=1
     else
-	suffix="($old)"
-	printf '[CHART] %s\n' "$chart"
+        suffix="($old)"
+        printf '[CHART] %s\n' "$chart"
     fi
 
     ## -----------------------------------
@@ -352,9 +352,9 @@ do
     combo_list+=("${untracked_files[@]}")
     if report_modified "$chart" 'combo_list';
     then
-	if [ $chart_modified -eq 0 ]; then
-	    error "Chart modified but version unchanged: ${chart_dir}"
-	fi
+        if [ $chart_modified -eq 0 ]; then
+            error "Chart modified but version unchanged: ${chart_dir}"
+        fi
     fi
 
 done
@@ -364,9 +364,9 @@ done
 ## ---------------------------
 if [[ -x changes_remote ]] && [ ${#changes_remote} -gt 0 ]; then # local_edits
     displayList \
-	'--newline'                 \
-	'--banner' 'Changed Files:' \
-	"${changes_remote[@]}"
+        '--newline'                 \
+        '--banner' 'Changed Files:' \
+        "${changes_remote[@]}"
 fi
 
 ## -------------------------------
@@ -374,9 +374,9 @@ fi
 ## -------------------------------
 if [ ${#untracked_files[@]} -gt 0 ]; then
     displayList \
-	'--newline'                   \
-	'--banner' 'Untracked Files:' \
-	"${untracked_files[@]}"
+        '--newline'                   \
+        '--banner' 'Untracked Files:' \
+        "${untracked_files[@]}"
 fi
 
 ## ---------------------------------
@@ -385,9 +385,9 @@ fi
 declare -a -g error_stream
 if [ ${#error_stream[@]} -gt 0 ]; then
     displayList \
-	'--newline'                 \
-	'--banner' 'Error Sumamry:' \
-	"${error_stream[@]}"
+        '--newline'                 \
+        '--banner' 'Error Sumamry:' \
+        "${error_stream[@]}"
 fi
 
 summary_status_with_exit $?

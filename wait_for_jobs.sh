@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Copyright 2018-2023 Open Networking Foundation (ONF) and the ONF Contributors
+# Copyright 2018-2024 Open Networking Foundation (ONF) and the ONF Contributors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -36,46 +36,46 @@ echo "Number printed is number of currently active jobs"
 prev_job_count=0
 
 while true; do
-  NOW=$(date +%s)
+    NOW=$(date +%s)
 
-  # handle timeout without completion
-  if [ "$NOW" -gt "$END_TIME" ]
-  then
-    echo "Jobs didn't complete before timeout of ${JOBS_TIMEOUT} seconds"
-    fail_wfj=1
-    break
-  fi
+    # handle timeout without completion
+    if [ "$NOW" -gt "$END_TIME" ]
+    then
+        echo "Jobs didn't complete before timeout of ${JOBS_TIMEOUT} seconds"
+        fail_wfj=1
+        break
+    fi
 
-  # get list of active jobs, and count of them
-  # jsonpath is picky about string vs comparison quoting, so have to have:
-  # shellcheck disable=SC2026,SC2086
-  active_jobs=$(kubectl get jobs $KUBECTL_ARGS -o=jsonpath='{range .items[?(@.status.active=='1')]}{.metadata.name}{"\n"}{end}')
+    # get list of active jobs, and count of them
+    # jsonpath is picky about string vs comparison quoting, so have to have:
+    # shellcheck disable=SC2026,SC2086
+    active_jobs=$(kubectl get jobs $KUBECTL_ARGS -o=jsonpath='{range .items[?(@.status.active=='1')]}{.metadata.name}{"\n"}{end}')
 
-  # this always is 1 or more, as echo leaves a newline in the output which wc
-  # counts as a line
-  active_job_count=$(echo -n "${active_jobs}" | wc -l)
+    # this always is 1 or more, as echo leaves a newline in the output which wc
+    # counts as a line
+    active_job_count=$(echo -n "${active_jobs}" | wc -l)
 
-  # if no jobs active, print runtime and break
-  if [ -z "$active_jobs" ]
-  then
-    runtime=$((NOW - START_TIME))
-    echo ""
-    echo "All jobs completed in $runtime seconds"
-    break
-  fi
+    # if no jobs active, print runtime and break
+    if [ -z "$active_jobs" ]
+    then
+        runtime=$((NOW - START_TIME))
+        echo ""
+        echo "All jobs completed in $runtime seconds"
+        break
+    fi
 
-  # deal with changes in number of jobs
-  if [ "$active_job_count" -ne "$prev_job_count" ]
-  then
-    echo ""
-    echo "Number of active jobs changed - current jobs:"
-    echo "$active_jobs"
-  fi
-  prev_job_count=$active_job_count
+    # deal with changes in number of jobs
+    if [ "$active_job_count" -ne "$prev_job_count" ]
+    then
+        echo ""
+        echo "Number of active jobs changed - current jobs:"
+        echo "$active_jobs"
+    fi
+    prev_job_count=$active_job_count
 
-  # print number of remaining jobs every $CHECK_INTERVAL
-  echo -n "$active_job_count "
-  sleep "$CHECK_INTERVAL"
+    # print number of remaining jobs every $CHECK_INTERVAL
+    echo -n "$active_job_count "
+    sleep "$CHECK_INTERVAL"
 done
 
 echo ""
