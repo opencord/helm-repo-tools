@@ -46,8 +46,9 @@ function banner()
 # Now: $(date '+%Y-%m-%d %H:%M:%S')
 # Git: $(git --version)
 # -----------------------------------------------------------------------
+#         WORKSPACE: $(realpath "${WORKSPACE}")
+#  WORKSPACE_BRANCH: $(git rev-parse --abbrev-ref HEAD)
 # COMPARISON_BRANCH: ${COMPARISON_BRANCH}
-#         WORKSPACE: ${WORKSPACE}
 # -----------------------------------------------------------------------
 BANNER
 
