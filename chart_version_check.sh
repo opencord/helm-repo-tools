@@ -1,19 +1,23 @@
 #!/usr/bin/env bash
-# ---------------------------------------------------------------------------
-# Copyright 2018-2024 Open Networking Foundation (ONF) and the ONF Contributors
+# -----------------------------------------------------------------------
+# Copyright 2018-2024 Open Networking Foundation Contributors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-# http://www.apache.org/licenses/LICENSE-2.0
+# http:#www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIESS OR CONDITIONS OF ANY KIND, either express or implied.
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------
+# SPDX-FileCopyrightText: 2018-2024 Open Networking Foundation Contributors
+# SPDX-License-Identifier: Apache-2.0
+# -----------------------------------------------------------------------
+# Intent:
 # chart_version_check.sh
 # checks that changes to a chart include a change to the chart version
 # ---------------------------------------------------------------------------
@@ -29,6 +33,19 @@ declare -a -g error_stream=()
 
 # declare -A -g ARGV=() # ARGV['debug']=1
 # declare -i -g debug=1 # uncomment to enable
+
+##--------------------##
+##---]  INCLUDES  [---##
+##--------------------##
+{
+    declare pgm
+    pgm="$(realpath "${BASH_SOURCE[0]}")"
+    declare libdir="${pgm%.sh}"
+
+    # shellcheck source=chart_version_check/filter_files.sh
+    # shellcheck disable=SC1091
+    source "$libdir/filter_files.sh"
+}
 
 ## -----------------------------------------------------------------------
 ## Intent: Display a program banner for logging
@@ -85,6 +102,7 @@ function get_version_by_git()
     local -n ref=$1   ; shift
     local path="$1"   ; shift
     local branch="$1" ; shift
+
     ref=''
 
     # -----------------------------------------------------------------------
@@ -95,12 +113,37 @@ function get_version_by_git()
                                 | grep '^[[:blank:]]*version[[:blank:]]*:'\
         )
 
+    # -----------------------------------------------------------------------
     # Extract version string
-    if [[ ${#buffer[@]} -ne 1 ]]; then
+    # -----------------------------------------------------------------------
+    if [[ ${#buffer[@]} -gt 1 ]]; then
+        cat <<EOM
+
+** -----------------------------------------------------------------------
+**     IAM: ${BASH_SOURCE[0]} (LINENO: ${LINENO})
+**   CHART: $path
+** WARNING: Unable to identify chart version, multiple strings detected.
+**        : Consider updating the lint tool to be aware of Chart.yaml
+**        : record syntax so versions can be extracted for comparison.
+** -----------------------------------------------------------------------
+EOM
+        ## c_v_c.sh needs to be aware of Chart.yaml record syntax
+        ## so a version can be targeted.
+
+        # shellcheck disable=SC1003 
+        declare -p buffer \
+            | tr '"' '\n' \
+            | grep '\.' \
+            | sed -e 's/^[[:blank:]]*//' \
+            | awk -F'\\' '{print "    "$1}' \
+            | sort -nr
+        echo
+
+        ref='' # Highly forgiving (display only)
+    elif [[ ${#buffer[@]} -ne 1 ]]; then
         ref='' # Highly forgiving (display only)
     else
         local raw="${buffer[0]}"
-
         # Extract value, split on whitespace, colon, comment or quote
         readarray -t fields < <(awk -F '[[:blank:]:#"]+' '{print $2}' <<<"$raw")
         ref="${fields[0]}"
@@ -283,6 +326,7 @@ function gather_charts()
 {
     declare -n varname="$1"; shift
     readarray -t varname < <(find . -name 'Chart.yaml' -print)
+    filter_files varname
 
     local idx
     for (( idx=0; idx<${#varname[@]}; idx++ ));
@@ -325,7 +369,7 @@ function report_modified()
     for val in "${varname[@]}";
     do
         case "$val" in
-            */Chart.yaml) ;; # special case
+            *'/Chart.yaml')            ;; # special case
             "${dir}"*) found+=("$val") ;;
         esac
     done
@@ -360,9 +404,11 @@ function gather_state()
     [[ -v debug ]] && declare -p charts
 
     readarray -t changes_remote < <(git diff --name-only "$branch")
+    filter_files changes_remote
     [[ -v debug ]] && declare -p changes_remote
 
     readarray -t untracked_files < <(git ls-files -o --exclude-standard)
+    filter_files untracked_files
     [[ -v debug ]] && declare -p untracked_files
 
     return
