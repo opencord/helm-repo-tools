@@ -296,17 +296,16 @@ function version_diff()
         local line
         for line in "${delta[@]}";
         do
-            # [TODO] Replace awk with string builtins to reduce shell overhead.
             case "$line" in
-                -version:*)
+                -version*:*)
                     modified=1
-                    readarray -t tmp < <(awk '/^\-version:/ { print $2 }' <<<"$line")
+                    readarray -t tmp <<< "${line#*: }"
                     # shellcheck disable=SC2034
                     old_var="${tmp[0]}"
                     filter_codes 'old_var'
                     ;;
-                +version:*)
-                    readarray -t tmp < <(awk '/^\+version:/ { print $2 }' <<<"$line")
+                +version*:*)
+                    readarray -t tmp <<< "${line#*: }"
                     # shellcheck disable=SC2034
                     new_var="${tmp[0]}"
                     filter_codes 'new_var'
