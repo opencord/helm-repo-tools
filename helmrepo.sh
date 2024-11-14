@@ -114,6 +114,7 @@ function getVersion()
 
     local key="${_fields[0]}"
     local val="${_fields[1]}"
+    # shellcheck disable=SC2004
     ref[$key]="$val"
 
     return

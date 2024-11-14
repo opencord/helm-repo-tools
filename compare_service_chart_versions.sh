@@ -42,7 +42,7 @@ do
     fi
 
     SVCVERSION=$( cat "$REPODIR/orchestration/xos-services/$SVCNAME/VERSION" )
-    echo $SVCNAME
+    echo "$SVCNAME"
     echo "  Chart:   $APPVERSION"
     echo "  Service: $SVCVERSION"
 done
