@@ -264,9 +264,9 @@ function validate_changes()
         ##   -version : 1.2.3
         ##   +version : 4.5.6
         if [[ ! -v ref['-version'] ]]; then
-            msg='Modify version= to publish chart changes'
+            msg='Modify version to publish chart changes'
         elif [[ ! -v ref["$new"] ]]; then
-            msg="Failed to detect +${key}= change in attributes"
+            msg="Failed to detect +${key} change in attributes"
         else
             continue
         fi
@@ -367,7 +367,7 @@ else
                 case "$line" in
                     # appVersion: "1.0.3"
                     # version: 1.2.3
-                    [-+]*[vV]ersion:*) getVersion versions "$line" ;;
+                    [-+]*[vV]ersion*:*) getVersion versions "$line" ;;
                 esac
             done
 
