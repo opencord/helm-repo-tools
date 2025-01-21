@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "6d41e096_295c70a4",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 1
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 1001013
+      },
+      "writtenOn": "2025-01-21T21:49:23Z",
+      "side": 1,
+      "message": "Self-approving, as this is a blocker for the release and needs to be merged ASAP.",
+      "revId": "0c5800b063f931de24446189745c709a522758c8",
+      "serverId": "2a2bfe1b-c5c2-48ed-9ac8-16438ab24388"
+    }
+  ]
+}
