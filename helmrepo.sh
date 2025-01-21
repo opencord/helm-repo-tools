@@ -104,11 +104,6 @@ function getVersion()
 
     [[ -v debug ]] && func_echo "LINE: $line"
 
-    # foo=${string#"$prefix"}
-
-    line="${line%\#*}"            # Snip comments
-    line="${line//[[:blank:]]}"   # Prune whitespace
-
     # version : x.y.z
     readarray -d':' -t _fields < <(printf '%s' "$line")
 
@@ -363,11 +358,15 @@ else
             for line in "${chart_yaml_diff[@]}";
             do
                 [[ -v debug ]] && func_echo "$line"
+                
+                # foo=${string#"$prefix"}
+                line="${line%\#*}"            # Snip comments
+                line="${line//[[:blank:]]}"   # Prune whitespace
 
                 case "$line" in
                     # appVersion: "1.0.3"
                     # version: 1.2.3
-                    [-+]*[vV]ersion*:*) getVersion versions "$line" ;;
+                    [-+]*[vV]ersion:*) getVersion versions "$line" ;;
                 esac
             done
 
